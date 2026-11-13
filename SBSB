@@ -1,0 +1,1565 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>스틸볼런 - 사막 경주</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; background: #d9a45f; font-family: system-ui, -apple-system, "Malgun Gothic", sans-serif; }
+  canvas { display: block; width: 100%; height: 100%; cursor: crosshair; }
+  #hud { position: fixed; inset: 0; pointer-events: none; color: #fff8e9; text-shadow: 0 2px 5px #4b2c17; display: none; }
+  .panel { background: rgba(42, 28, 18, .66); border: 1px solid rgba(255,240,210,.25); border-radius: 13px; padding: 11px 14px; box-shadow: 0 5px 18px rgba(39,22,8,.22); backdrop-filter: blur(4px); }
+  #topLeft { position: absolute; top: 14px; left: 14px; width: min(290px, calc(50vw - 22px)); }
+  #topRight { position: absolute; top: 14px; right: 14px; min-width: 155px; text-align: right; }
+  .smallLabel { font-size: 11px; opacity: .8; letter-spacing: .04em; }
+  .bigNumber { font-weight: 900; font-size: 24px; line-height: 1.25; }
+  .bar { height: 9px; margin-top: 6px; overflow: hidden; background: rgba(255,255,255,.18); border-radius: 20px; }
+  .bar > div { height: 100%; width: 100%; border-radius: inherit; background: linear-gradient(90deg,#a8e56f,#e9e56c); transition: width .08s linear; }
+  #progressFill { background: linear-gradient(90deg,#ffdc75,#fff3b4); }
+  #skillPanel { position: absolute; bottom: 15px; left: 15px; display: flex; gap: 8px; flex-wrap: wrap; max-width: min(780px, calc(100vw - 30px)); }
+  .skill { min-width: 94px; padding: 8px 10px; text-align: center; }
+  .skillKey { font-weight: 900; font-size: 18px; }
+  .skillName { font-size: 11px; white-space: nowrap; }
+  .skillState { font-size: 10px; opacity: .85; min-height: 14px; }
+  #bottomRight { position: absolute; right: 14px; bottom: 15px; text-align: right; font-size: 12px; line-height: 1.55; }
+  #raceMessage { position: absolute; top: 24%; left: 50%; transform: translateX(-50%); font-size: clamp(32px, 6vw, 66px); font-weight: 1000; color: #fff4c8; text-shadow: 0 4px 0 #7b3d1d, 0 7px 18px #472713; white-space: nowrap; }
+  #dimensionBanner { position: absolute; top: 76px; left: 50%; transform: translateX(-50%); padding: 10px 18px; border-radius: 16px; text-align: center; background: rgba(28,18,74,.72); border: 1px solid rgba(155,221,255,.55); box-shadow: 0 0 24px rgba(96,156,255,.25); color: #e9f4ff; display: none; min-width: 210px; }
+  #dimensionBanner strong { display: block; font-size: 15px; letter-spacing: .12em; }
+  #dimensionBanner span { font-size: 12px; color: #bce8ff; }
+  #dimensionShout {
+    position: absolute; left: 50%; top: 39%; z-index: 20;
+    display: none; transform: translate(-50%, -50%);
+    font-size: clamp(64px, 12vw, 132px); line-height: 1;
+    font-weight: 1000; letter-spacing: .04em; white-space: nowrap;
+    color: #ffc1df; -webkit-text-stroke: 2px rgba(255,245,251,.9);
+    text-shadow: 0 0 10px #ff8fc8, 0 0 28px #ff62b5, 0 8px 0 #a83d78, 0 14px 28px rgba(75,12,55,.65);
+    pointer-events: none;
+  }
+  #dimensionShout.show { display: block; animation: d4cFlash 1.9s cubic-bezier(.18,.78,.22,1) both; }
+  @keyframes d4cFlash {
+    0% { opacity: 0; transform: translate(-50%, -50%) scale(.35) rotate(-9deg); filter: blur(8px); }
+    16% { opacity: 1; transform: translate(-50%, -50%) scale(1.18) rotate(3deg); filter: blur(0); }
+    30% { transform: translate(-50%, -50%) scale(1) rotate(0); }
+    72% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+    100% { opacity: 0; transform: translate(-50%, -50%) scale(1.35) rotate(5deg); filter: blur(3px); }
+  }
+  #theWorldShout {
+    position: absolute; left: 50%; top: 39%; z-index: 24;
+    display: none; transform: translate(-50%, -50%);
+    font-size: clamp(58px, 11vw, 124px); line-height: 1;
+    font-weight: 1000; letter-spacing: .04em; white-space: nowrap;
+    color: #fff36a; -webkit-text-stroke: 2px rgba(255,255,220,.95);
+    text-shadow: 0 0 12px #fff36a, 0 0 30px #ffcf27, 0 9px 0 #986600, 0 15px 30px rgba(35,22,0,.78);
+    pointer-events: none;
+  }
+  #theWorldShout.show { display: block; animation: theWorldFlash 1.8s cubic-bezier(.18,.78,.22,1) both; }
+  @keyframes theWorldFlash {
+    0% { opacity: 0; transform: translate(-50%, -50%) scale(.25) rotate(-12deg); filter: blur(10px); }
+    18% { opacity: 1; transform: translate(-50%, -50%) scale(1.2) rotate(3deg); filter: blur(0); }
+    34%, 76% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+    100% { opacity: 0; transform: translate(-50%, -50%) scale(1.35) rotate(5deg); filter: blur(4px); }
+  }
+  #timeStopBanner {
+    position: absolute; top: 76px; left: 50%; transform: translateX(-50%);
+    display: none; min-width: 210px; padding: 10px 18px; border-radius: 16px;
+    text-align: center; color: #fff7b0; background: rgba(49,35,0,.82);
+    border: 1px solid rgba(255,229,91,.85); box-shadow: 0 0 26px rgba(255,213,39,.32);
+  }
+  #timeStopBanner strong { display: block; font-size: 16px; letter-spacing: .12em; }
+  #timeStopBanner span { font-size: 12px; color: #fff0a0; }
+  #loveTrainShout {
+    position: absolute; left: 50%; top: 27%; z-index: 21;
+    display: none; transform: translate(-50%, -50%);
+    font-size: clamp(34px, 7vw, 78px); line-height: 1.1;
+    font-weight: 1000; letter-spacing: .015em; white-space: nowrap;
+    color: #ffe84a; -webkit-text-stroke: 1.7px #fff8b0;
+    text-shadow: 0 0 9px #fff36a, 0 0 23px #ffcf21, 0 7px 0 #9b6500, 0 12px 24px rgba(60,35,0,.72);
+    pointer-events: none;
+  }
+  #loveTrainShout.show { display: block; animation: loveTrainFlash 2.1s cubic-bezier(.18,.78,.22,1) both; }
+  @keyframes loveTrainFlash {
+    0% { opacity: 0; transform: translate(-50%, -50%) scale(.35) rotate(-7deg); filter: blur(7px); }
+    15% { opacity: 1; transform: translate(-50%, -50%) scale(1.12) rotate(2deg); filter: blur(0); }
+    30%, 76% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+    100% { opacity: 0; transform: translate(-50%, -50%) scale(1.25) rotate(4deg); filter: blur(4px); }
+  }
+  #toast { position: absolute; top: 14px; left: 50%; transform: translateX(-50%); padding: 9px 15px; border-radius: 30px; background: rgba(50,31,17,.75); font-size: 13px; opacity: 0; transition: opacity .2s; }
+  #overlay { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; padding: 18px; background: linear-gradient(rgba(39,24,13,.26),rgba(39,24,13,.62)); color: #fff5df; }
+  .card { width: min(720px, 100%); max-height: min(92vh, 850px); overflow: auto; padding: clamp(20px, 4vw, 36px); border-radius: 24px; background: rgba(53, 34, 20, .93); border: 1px solid rgba(255,234,191,.36); box-shadow: 0 20px 70px rgba(25,13,5,.45); }
+  h1 { margin: 0 0 7px; font-size: clamp(34px, 7vw, 62px); line-height: 1; letter-spacing: -.05em; color: #ffe18d; text-shadow: 0 4px 0 #8b4a24; }
+  .subtitle { margin: 10px 0 20px; color: #f4d5a1; font-size: 15px; }
+  .instructions { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 9px; margin: 18px 0 22px; }
+  .instruction { padding: 10px 12px; border-radius: 12px; background: rgba(255,238,206,.09); border: 1px solid rgba(255,238,206,.12); font-size: 13px; line-height: 1.5; }
+  .instruction b { color: #ffe18d; }
+  .notice { font-size: 12px; line-height: 1.6; color: #eacba0; }
+  button { border: 0; border-radius: 14px; padding: 13px 25px; font-size: 16px; font-weight: 900; color: #4a2a13; background: linear-gradient(180deg,#ffe79a,#eebd59); box-shadow: 0 5px 0 #9a5a28, 0 8px 18px rgba(0,0,0,.2); cursor: pointer; }
+  button:hover { filter: brightness(1.08); transform: translateY(-1px); }
+  button:active { transform: translateY(2px); box-shadow: 0 2px 0 #9a5a28; }
+  #startBtn, #againBtn { width: 100%; margin-top: 5px; }
+  #resultCard { display: none; text-align: center; }
+  #resultTitle { font-size: clamp(30px, 6vw, 48px); color: #ffe18d; margin: 5px 0 10px; }
+  #resultText { line-height: 1.8; margin-bottom: 20px; }
+  @media (max-width: 560px) {
+    #topLeft { top: 8px; left: 8px; padding: 8px 10px; width: 190px; }
+    #topRight { top: 8px; right: 8px; padding: 8px 10px; min-width: 112px; }
+    .bigNumber { font-size: 19px; }
+    #skillPanel { left: 8px; bottom: 8px; gap: 5px; }
+    .skill { min-width: 73px; padding: 6px 7px; }
+    #bottomRight { right: 8px; bottom: 8px; font-size: 10px; }
+    .instructions { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<canvas id="game" aria-label="스틸볼런 사막 경주 게임 화면"></canvas>
+
+<div id="hud">
+  <div id="topLeft" class="panel">
+    <div class="smallLabel">완주까지 남은 거리</div>
+    <div class="bigNumber"><span id="distanceValue">0</span><span style="font-size:13px;font-weight:600"> m</span></div>
+    <div class="bar"><div id="progressFill"></div></div>
+    <div style="display:flex;justify-content:space-between;margin-top:9px;gap:8px">
+      <div style="flex:1"><div class="smallLabel">질주 스태미나</div><div class="bar"><div id="staminaFill"></div></div><div id="staminaText" style="font-size:11px;margin-top:3px">30초</div></div>
+    </div>
+  </div>
+  <div id="topRight" class="panel">
+    <div class="smallLabel" id="rankLabel">현재 순위</div>
+    <div class="bigNumber"><span id="rankValue">1</span><span id="rankSuffix" style="font-size:13px"> / 31위</span></div>
+    <div class="smallLabel" style="margin-top:8px">말 속도</div>
+    <div style="font-weight:900;font-size:20px"><span id="speedValue">0</span><span style="font-size:11px"> km/h</span></div>
+    <div id="slowStatus" class="smallLabel" style="margin-top:5px;color:#ffb0a2;display:none;font-weight:800">충돌! 속도 감소</div>
+    <div id="viewValue" class="smallLabel" style="margin-top:6px">1인칭 시점</div>
+  </div>
+  <div id="skillPanel">
+    <div class="panel skill"><div class="skillKey">SHIFT</div><div class="skillName">빠르게 달리기</div><div class="skillState" id="sprintState">최대 30초</div></div>
+    <div class="panel skill"><div class="skillKey">C</div><div class="skillName">초강력 점프</div><div class="skillState" id="jumpState">사용 가능</div></div>
+    <div class="panel skill"><div class="skillKey">F</div><div class="skillName">밧줄 이동</div><div class="skillState" id="ropeState">사용 가능</div></div>
+    <div class="panel skill"><div class="skillKey">G</div><div class="skillName">철구 회전</div><div class="skillState" id="ballState">5초 회전</div></div>
+    <div class="panel skill"><div class="skillKey">T</div><div class="skillName">공룡 소환</div><div class="skillState" id="dinoState">30초 대기시간</div></div>
+    <div class="panel skill"><div class="skillKey">X</div><div class="skillName">다른 차원</div><div class="skillState" id="dimensionState">5초 다른 차원</div></div>
+    <div class="panel skill"><div class="skillKey">B</div><div class="skillName">러브 트레인</div><div class="skillState" id="loveTrainState">사용 가능</div></div>
+    <div class="panel skill"><div class="skillKey">좌클릭</div><div class="skillName">더 월드</div><div class="skillState" id="timeStopState">5초 정지</div></div>
+  </div>
+  <div id="dimensionBanner"><strong>✧ 다른 차원 ✧</strong><span id="dimensionTimer">5.0초 남음 · AI도 계속 달려요</span></div>
+  <div id="dimensionShout" aria-hidden="true">D4C!</div>
+  <div id="loveTrainShout" aria-hidden="true">D4C! 러브트레인!</div>
+  <div id="theWorldShout" aria-hidden="true">더월드!</div>
+  <div id="timeStopBanner"><strong>THE WORLD</strong><span id="timeStopTimer">5.0초 · 시간 정지</span></div>
+  <div id="bottomRight" class="panel">
+    <b>W A S D</b> 이동　 <b>V</b> 시점 변경<br>
+    <b>CTRL</b> 시점 고정 켜기/끄기　 <b>ESC</b> 해제
+  </div>
+  <div id="raceMessage"></div>
+  <div id="toast"></div>
+</div>
+
+<div id="overlay">
+  <div class="card" id="introCard">
+    <h1>스틸볼런</h1>
+    <div class="subtitle">뜨거운 사막을 달려 결승선까지! AI 기수 30명과 함께 말 경주를 시작하세요.</div>
+    <div class="instructions">
+      <div class="instruction"><b>W / A / S / D</b><br>말을 앞·왼쪽·뒤·오른쪽으로 이동해요.</div>
+      <div class="instruction"><b>CTRL 한 번 누르기</b><br>한 번 누르면 마우스 시점 조작이 켜지고, 다시 누르면 꺼져요. 마우스를 움직여 방향을 바꿔요. W는 바라보는 방향으로 이동해요.</div>
+      <div class="instruction"><b>SHIFT · 질주</b><br>최대 30초 동안 빨리 달려요. 스태미나는 비어 있을 때 15초 동안 회복돼요.</div>
+      <div class="instruction"><b>C · 초강력 점프</b><br>높이 점프해요. 다시 사용하려면 10초가 필요해요.</div>
+      <div class="instruction"><b>F · 밧줄 이동</b><br>바라보는 방향으로 밧줄을 던져 앞으로 끌려가요. 재사용 대기시간은 10초예요.</div>
+      <div class="instruction"><b>G · 철구 회전</b><br>철구가 주위를 5초 동안 돌아요. 상대가 맞으면 3초 동안 속도가 45% 느려져요. 재사용 대기시간은 10초예요.</div>
+      <div class="instruction"><b>T · 파란 공룡 소환</b><br>플레이어 시점은 그대로예요. 눈앞의 코스 바닥에서 커다란 파란 공룡이 튀어나와 “Dio!”를 외치며 앞서 달리는 AI 한 명을 쫓아가 잡아먹어요. 재사용 대기시간은 30초이며 플레이어만 사용할 수 있어요.</div>
+      <div class="instruction"><b>X · 다른 차원</b><br>5초 동안 나 혼자 다른 차원으로 이동해요. AI는 현실에 남아 화면에서 보이지 않지만, 그동안에도 현실 코스에서 계속 달려요. 현실로 돌아오면 AI가 달린 거리도 반영돼요. 차원 안에서는 이동 속도가 40% 빨라져요. C·F·G 스킬 쿨타임은 15초이며, X의 쿨타임은 차원에 있는 5초 동안 멈춰 있고 현실로 돌아온 뒤부터 15초가 흘러야 다시 사용할 수 있어요.</div>
+      <div class="instruction"><b>B · D4C! 러브트레인!</b><br>플레이어 주변을 여러 개의 노란 기둥이 빙글빙글 돌아요. 기둥들이 AI 한 명을 향해 이동한 뒤, AI의 진행 경로에 일렬로 세 번 떨어져요. 세 번째 기둥까지 맞으면 그 AI는 경주에서 탈락해요. 재사용 대기시간은 30초예요.</div>
+      <div class="instruction"><b>마우스 좌클릭 · 더월드!</b><br>5초 동안 시간이 멈춰요. AI와 AI의 스킬, 공룡과 황금 기둥은 정지하고 나만 말을 움직일 수 있어요. 재사용 대기시간은 15초예요.</div>
+      <div class="instruction"><b>V · 시점 변경</b><br>1인칭과 3인칭을 번갈아 바꿔요. 시작 시점은 1인칭이에요.</div>
+      <div class="instruction"><b>선인장 장애물</b><br>경주로 위에 있는 선인장을 피하세요! 닿으면 플레이어와 AI 모두 1초 동안 속도가 느려져요. 선인장의 충돌 판정은 작게 만들었어요.</div>
+      <div class="instruction"><b>경주 규칙</b><br>사막의 정해진 길 안에서 달려야 해요. AI 기수 30명도 질주·점프·밧줄·철구 스킬을 사용해요. 완주하면 성공!</div>
+    </div>
+    <div class="notice">조작 팁: 경주 중 CTRL을 한 번 누르면 마우스 시점 조작이 켜지고, 다시 누르면 꺼져요. 브라우저가 마우스 잠금을 허용하지 않아도 마우스를 움직여 방향을 바꿀 수 있어요. ESC를 누르면 잠금을 풀 수 있어요.</div>
+    <button id="startBtn">경주 시작!</button>
+  </div>
+  <div class="card" id="resultCard">
+    <div style="font-size:48px">🏁 🐎</div>
+    <div id="resultTitle">완주 성공!</div>
+    <div id="resultText"></div>
+    <button id="againBtn">다시 경주하기</button>
+  </div>
+</div>
+
+<script>
+(() => {
+  'use strict';
+  const canvas = document.getElementById('game');
+  const ctx = canvas.getContext('2d');
+  const $ = (id) => document.getElementById(id);
+  const HUD = $('hud');
+  const overlay = $('overlay');
+  const introCard = $('introCard');
+  const resultCard = $('resultCard');
+
+  const FINISH = 1800;
+  const ROAD_HALF = 22.5;
+  const GRAVITY = 34;
+  let W = innerWidth, H = innerHeight, DPR = 1;
+  let phase = 'menu'; // menu, countdown, racing, finished
+  let countdown = 3;
+  let lastTime = 0;
+  let messageTimer = 0;
+  let dragLook = false;
+  let lastMouseX = 0;
+  let pointerLocked = false;
+  let mouseLookEnabled = false;
+  let showMessageTimer = 0;
+  let dimensionShoutTimer = 0;
+  const keys = new Set();
+  const cooldowns = { jump: 0, rope: 0, ball: 0, dino: 0, dimension: 0, loveTrain: 0, timeStop: 0 };
+  const timeStop = { active: false, timeLeft: 0, duration: 5 };
+  let timeStopShoutTimer = 0;
+  let dinoAttack = null;
+  let loveTrainAttack = null;
+  let loveTrainShoutTimer = 0;
+  const dimension = { active: false, timeLeft: 0, elapsed: 0, entryZ: 0 };
+
+  const player = { x: 0, z: 0, yaw: 0, y: 0, vy: 0, stamina: 30, staminaRecovering: false, speed: 0, gaitTime: 0, slowTimer: 0, slowReason: '', hitCacti: new Set() };
+  let firstPerson = true;
+  let rope = null;
+  let steelBall = null;
+  let raceTime = 0;
+  let ai = [];
+  let decor = [];
+  let cactusObstacles = [];
+  let lastToast = '';
+
+  function resize() {
+    W = innerWidth; H = innerHeight;
+    DPR = Math.min(devicePixelRatio || 1, 1.7);
+    canvas.width = Math.round(W * DPR);
+    canvas.height = Math.round(H * DPR);
+    canvas.style.width = W + 'px';
+    canvas.style.height = H + 'px';
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  }
+  addEventListener('resize', resize);
+  resize();
+
+  function trackCenter(z) {
+    return 23 * Math.sin(z / 225) + 10 * Math.sin(z / 83) + 4 * Math.sin(z / 39);
+  }
+  function clampToTrack() {
+    const middle = trackCenter(player.z);
+    const old = player.x;
+    player.x = Math.max(middle - ROAD_HALF + 1, Math.min(middle + ROAD_HALF - 1, player.x));
+    if (Math.abs(old - player.x) > 0.001) toast('정해진 코스 안에서 달려야 해요!');
+    player.z = Math.max(0, Math.min(FINISH, player.z));
+  }
+  function random01(seed) {
+    const v = Math.sin(seed * 127.1 + 311.7) * 43758.5453;
+    return v - Math.floor(v);
+  }
+  function makeDecor() {
+    decor = [];
+    cactusObstacles = [];
+    // 경주로 안쪽에 선인장 장애물을 배치해 피해서 달릴 수 있게 합니다.
+    const obstacleLanes = [-13.0, -6.5, 0, 6.5, 13.0];
+    for (let i = 0; i < 23; i++) {
+      const z = 95 + i * 74;
+      const laneIndex = Math.floor(random01(i * 31 + 9) * obstacleLanes.length);
+      cactusObstacles.push({
+        x: trackCenter(z) + obstacleLanes[laneIndex],
+        z,
+        size: 0.82 + random01(i * 17 + 4) * 0.16,
+        hitRadius: 0.95
+      });
+    }
+    for (let i = 0; i < 135; i++) {
+      const z = -30 + i * 17;
+      for (const side of [-1, 1]) {
+        const r = random01(i * 7 + side * 13);
+        decor.push({ z, x: trackCenter(z) + side * (ROAD_HALF + 5 + r * 15), side, type: r > .58 ? 'cactus' : 'rock', size: .65 + random01(i * 19 + side) * .8 });
+      }
+    }
+  }
+  function resetGame() {
+    player.x = trackCenter(0); player.z = 0; player.prevX = player.x; player.prevZ = 0; player.yaw = 0; player.y = 0; player.vy = 0;
+    player.stamina = 30; player.staminaRecovering = false; player.speed = 0; player.gaitTime = 0; player.slowTimer = 0; player.slowReason = ''; player.hitCacti = new Set();
+    cooldowns.jump = cooldowns.rope = cooldowns.ball = cooldowns.dino = cooldowns.dimension = cooldowns.loveTrain = cooldowns.timeStop = 0;
+    timeStop.active = false; timeStop.timeLeft = 0; timeStopShoutTimer = 0;
+    $('theWorldShout').classList.remove('show');
+    $('timeStopBanner').style.display = 'none';
+    loveTrainAttack = null;
+    loveTrainShoutTimer = 0;
+    $('loveTrainShout').classList.remove('show');
+    dimension.active = false; dimension.timeLeft = 0; dimension.elapsed = 0; dimension.entryZ = 0;
+    $('dimensionBanner').style.display = 'none';
+    $('dimensionShout').classList.remove('show');
+    dimensionShoutTimer = 0;
+    dinoAttack = null;
+    rope = null; steelBall = null; firstPerson = true;
+    mouseLookEnabled = false; dragLook = false;
+    if (document.pointerLockElement === canvas) document.exitPointerLock?.();
+    raceTime = 0; countdown = 3;
+    // 30명의 AI를 6개 레인 × 5개 줄로 넓게 배치합니다.
+    // 도로 폭에 맞춰 좌우 간격을 넉넉히 두어 출발할 때 서로 겹치지 않습니다.
+    const laneOffsets = [-17, -10.2, -3.4, 3.4, 10.2, 17];
+    const horseColors = ['#75432c', '#8b3227', '#3e342d', '#a65d35', '#62513a', '#8a6948', '#5d382b', '#9b472e', '#4d5148', '#79503c'];
+    const riderColors = ['#e6d3a8', '#f0c46a', '#dce0e2', '#b9d5ad', '#e5b4a1', '#c7b4e8', '#f1d5a8', '#9ed0d1', '#d9c7a2', '#e3a9bd'];
+    const firstNames = ['모래바람', '붉은 번개', '황금 발굽'];
+    ai = Array.from({ length: 30 }, (_, i) => {
+      const row = Math.floor(i / 6);
+      const column = i % 6;
+      const z = -4 - row * 5.8 + (column % 2) * 0.55;
+      return {
+        name: firstNames[i] || `사막 기수 ${String(i + 1).padStart(2, '0')}`,
+        z,
+        lane: laneOffsets[column],
+        speed: 19.2 + random01(i + 37) * 2.2,
+        color: horseColors[i % horseColors.length],
+        rider: riderColors[i % riderColors.length]
+      };
+    }).map((r, i) => ({
+      ...r,
+      x: trackCenter(r.z) + r.lane,
+      prevX: trackCenter(r.z) + r.lane,
+      prevZ: r.z,
+      stamina: 30,
+      staminaRecovering: false,
+      sprintBurst: 2.5 + Math.random() * 3,
+      sprintPause: 0,
+      sprinting: false,
+      jumpCooldown: 2 + Math.random() * 5,
+      ropeCooldown: 3 + Math.random() * 5,
+      ballCooldown: 4 + Math.random() * 5,
+      skillThink: 1 + Math.random() * 2,
+      y: 0,
+      vy: 0,
+      ropeBoost: 0,
+      ropeEffect: 0,
+      ballTimer: 0,
+      ballAngle: i * 1.7,
+      slowTimer: 0,
+      ballHitTargets: new Set(),
+      hitCacti: new Set()
+    }));
+    makeDecor();
+    phase = 'countdown';
+    overlay.style.display = 'none';
+    HUD.style.display = 'block';
+    $('raceMessage').textContent = '3';
+    toast('경주 준비! W를 눌러 출발하세요.');
+  }
+  function toast(text) {
+    if (text === lastToast && showMessageTimer > 0) return;
+    lastToast = text;
+    const node = $('toast');
+    node.textContent = text;
+    node.style.opacity = '1';
+    showMessageTimer = 2.1;
+  }
+
+  $('startBtn').addEventListener('click', resetGame);
+  $('againBtn').addEventListener('click', resetGame);
+
+  function toggleMouseLook() {
+    mouseLookEnabled = !mouseLookEnabled;
+    dragLook = false;
+    if (mouseLookEnabled) {
+      toast('마우스 시점 조작 ON — 마우스를 움직여 방향을 바꾸세요.');
+      // 지원 브라우저에서는 포인터를 화면 중앙에 잠그고, 거부되면 일반 마우스 이동으로 조작합니다.
+      if (canvas.requestPointerLock && document.pointerLockElement !== canvas) {
+        try {
+          const promise = canvas.requestPointerLock();
+          if (promise && promise.catch) promise.catch(() => {
+            if (mouseLookEnabled) toast('마우스 시점 조작 ON — 마우스를 움직여 방향을 바꾸세요.');
+          });
+        } catch (_) {
+          // 포인터 잠금이 불가능해도 아래의 일반 마우스 이동 조작은 계속 작동합니다.
+        }
+      }
+    } else {
+      if (document.pointerLockElement === canvas) document.exitPointerLock?.();
+      toast('마우스 시점 조작 OFF');
+    }
+  }
+  document.addEventListener('pointerlockchange', () => {
+    const wasLocked = pointerLocked;
+    pointerLocked = document.pointerLockElement === canvas;
+    // ESC 등으로 브라우저 포인터 잠금이 풀리면 시점 고정 모드도 함께 끕니다.
+    if (wasLocked && !pointerLocked && mouseLookEnabled) {
+      mouseLookEnabled = false;
+      dragLook = false;
+      if (phase === 'racing') toast('마우스 잠금 해제됨 — CTRL을 눌러 다시 켜세요.');
+    }
+  });
+  canvas.addEventListener('mousedown', (e) => {
+    if (e.button === 0) activateTimeStop();
+    if (!pointerLocked && !mouseLookEnabled && e.button === 0) { dragLook = true; lastMouseX = e.clientX; }
+  });
+  addEventListener('mouseup', () => dragLook = false);
+  addEventListener('mousemove', (e) => {
+    if (pointerLocked) {
+      player.yaw += (e.movementX || 0) * 0.0025;
+    } else {
+      const deltaX = e.clientX - lastMouseX;
+      if (mouseLookEnabled || dragLook) player.yaw += deltaX * 0.004;
+      lastMouseX = e.clientX;
+    }
+  });
+
+  function dimensionSkillCooldown(normalSeconds) { return dimension.active ? 15 : normalSeconds; }
+
+  function activateTimeStop() {
+    if (phase !== 'racing' || timeStop.active || cooldowns.timeStop > 0) return;
+    if (dimension.active) { toast('다른 차원에서는 더월드를 사용할 수 없어요!'); return; }
+    timeStop.active = true;
+    timeStop.timeLeft = timeStop.duration;
+    cooldowns.timeStop = 15;
+    const shout = $('theWorldShout');
+    shout.classList.remove('show');
+    void shout.offsetWidth;
+    shout.classList.add('show');
+    timeStopShoutTimer = 1.8;
+    $('timeStopBanner').style.display = 'block';
+    $('timeStopTimer').textContent = `${timeStop.timeLeft.toFixed(1)}초 · 나만 움직일 수 있어요`;
+    toast('더월드! 시간이 멈췄어요!');
+  }
+
+  function activateJump() {
+    if (phase !== 'racing' || cooldowns.jump > 0) return;
+    cooldowns.jump = dimensionSkillCooldown(10);
+    if (player.y <= 0.02) player.vy = 19.5;
+    toast('초강력 점프!');
+  }
+  function activateRope() {
+    if (phase !== 'racing' || cooldowns.rope > 0) return;
+    cooldowns.rope = dimensionSkillCooldown(10);
+    const reach = 105;
+    rope = { x: player.x + Math.sin(player.yaw) * reach, z: player.z + Math.cos(player.yaw) * reach, time: 10 };
+    toast('밧줄 발사! 목표 지점으로 이동합니다.');
+  }
+  function activateBall() {
+    if (phase !== 'racing' || cooldowns.ball > 0) return;
+    cooldowns.ball = dimensionSkillCooldown(10);
+    steelBall = { state: 'orbit', timer: 5, angle: 0, returnTimer: 0, lastX: 0, lastZ: 0, lastY: 2.4, hitTargets: new Set() };
+    toast('철구가 주위를 돌기 시작했어요!');
+  }
+
+  function activateLoveTrain() {
+    if (phase !== 'racing' || cooldowns.loveTrain > 0 || loveTrainAttack) return;
+    if (dimension.active) { toast('러브트레인은 현실 차원에서만 사용할 수 있어요!'); return; }
+    const candidates = ai.filter(r => !r.eliminated && !r.beingEaten && !r.beingChased && !r.beingPillarStruck);
+    if (!candidates.length) { toast('러브트레인으로 공격할 AI가 없어요!'); return; }
+    const ahead = candidates.filter(r => r.z > player.z + 3).sort((a, b) => a.z - b.z);
+    const target = ahead[0] || candidates.slice().sort((a, b) => Math.abs(a.z - player.z) - Math.abs(b.z - player.z))[0];
+    cooldowns.loveTrain = 30;
+    const shout = $('loveTrainShout');
+    shout.classList.remove('show');
+    void shout.offsetWidth;
+    shout.classList.add('show');
+    loveTrainShoutTimer = 2.1;
+    loveTrainAttack = {
+      target,
+      phase: 'orbit',
+      elapsed: 0,
+      angle: 0,
+      orbitTime: 1.25,
+      strikeElapsed: 0,
+      strikeIndex: 0,
+      currentHit: false,
+      baseZ: 0,
+      laneOffset: 0,
+      impacts: [],
+      finishTimer: 0
+    };
+    toast('D4C! 러브트레인! 황금 기둥이 나타났어요!');
+  }
+
+  function activateDimension() {
+    if (phase !== 'racing' || dimension.active || cooldowns.dimension > 0) return;
+    if (timeStop.active) { toast('더월드가 끝난 뒤 다른 차원을 사용할 수 있어요!'); return; }
+    dimension.active = true;
+    dimension.timeLeft = 5;
+    dimension.elapsed = 0;
+    dimension.entryZ = player.z;
+    cooldowns.dimension = 15;
+    $('dimensionBanner').style.display = 'block';
+    const shout = $('dimensionShout');
+    shout.classList.remove('show');
+    void shout.offsetWidth; // 같은 스킬을 다시 쓸 때도 애니메이션을 처음부터 재생합니다.
+    shout.classList.add('show');
+    dimensionShoutTimer = 1.9;
+    toast('X! 다른 차원으로 이동했어요. 5초 동안 AI와 함께 달립니다!');
+  }
+
+  // T 스킬은 플레이어 전용입니다. 공룡은 카메라 연출을 바꾸지 않고, 플레이어가 보고 있는
+  // 사막 코스 위에 실제 월드 오브젝트로 등장해 AI를 쫓아갑니다.
+  function activateDino() {
+    if (dimension.active) { toast('다른 차원에는 AI가 없어서 공룡을 부를 수 없어요.'); return; }
+    if (phase !== 'racing' || cooldowns.dino > 0 || dinoAttack) return;
+    const targets = ai.filter(rider => !rider.eliminated && !rider.beingEaten && !rider.beingChased && !rider.beingPillarStruck);
+    if (!targets.length) { toast('공룡이 잡아먹을 AI가 없어요!'); return; }
+
+    // 플레이어 앞쪽에서 가장 가까운 AI를 목표로 합니다. 뒤에 있는 AI를 고르면
+    // 고정된 플레이어 시야 밖에서 먹는 일이 생기므로, 앞에 AI가 있을 때만 소환합니다.
+    const ahead = targets.filter(rider => rider.z > player.z + 5);
+    if (!ahead.length) { toast('앞쪽에 AI가 있을 때 공룡을 소환할 수 있어요!'); return; }
+    ahead.sort((a, b) => a.z - b.z);
+    const target = ahead[0];
+
+    // 플레이어가 보던 코스 중앙에 공룡이 튀어나옵니다. 카메라 위치와 방향은 바뀌지 않습니다.
+    const spawnZ = Math.max(player.z + 3.5, Math.min(player.z + 20, target.z - 25));
+    cooldowns.dino = 30;
+    target.beingChased = true;
+    dinoAttack = {
+      target,
+      x: trackCenter(spawnZ),
+      z: spawnZ,
+      elapsed: 0,
+      gait: 0,
+      phase: 'emerge',
+      emergeTimer: 0.48,
+      eatTimer: 1.65
+    };
+    toast('Dio! 파란 공룡이 경주로에 뛰어나왔어요!');
+  }
+
+  addEventListener('keydown', (e) => {
+    const code = e.code;
+    if (['KeyW','KeyA','KeyS','KeyD','ShiftLeft','ShiftRight','KeyB','KeyC','KeyF','KeyG','KeyT','KeyX','KeyV','ControlLeft','ControlRight','Space'].includes(code)) e.preventDefault();
+    if (code === 'ControlLeft' || code === 'ControlRight') { if (!e.repeat && phase !== 'menu' && phase !== 'finished') toggleMouseLook(); return; }
+    if (e.repeat) return;
+    if (code === 'KeyV' && phase !== 'menu' && phase !== 'finished') {
+      firstPerson = !firstPerson;
+      toast(firstPerson ? '1인칭 시점' : '3인칭 시점');
+      return;
+    }
+    if (code === 'KeyC') { activateJump(); return; }
+    if (code === 'KeyF') { activateRope(); return; }
+    if (code === 'KeyG') { activateBall(); return; }
+    if (code === 'KeyB') { activateLoveTrain(); return; }
+    if (code === 'KeyT') { activateDino(); return; }
+    if (code === 'KeyX') { activateDimension(); return; }
+    keys.add(code);
+  });
+  addEventListener('keyup', (e) => keys.delete(e.code));
+  addEventListener('blur', () => { keys.clear(); dragLook = false; });
+
+  function update(dt) {
+    if (timeStopShoutTimer > 0) {
+      timeStopShoutTimer = Math.max(0, timeStopShoutTimer - dt);
+      if (timeStopShoutTimer <= 0) $('theWorldShout').classList.remove('show');
+    }
+    if (dimensionShoutTimer > 0) {
+      dimensionShoutTimer = Math.max(0, dimensionShoutTimer - dt);
+      if (dimensionShoutTimer <= 0) $('dimensionShout').classList.remove('show');
+    }
+    if (loveTrainShoutTimer > 0 && !timeStop.active) {
+      loveTrainShoutTimer = Math.max(0, loveTrainShoutTimer - dt);
+      if (loveTrainShoutTimer <= 0) $('loveTrainShout').classList.remove('show');
+    }
+    if (showMessageTimer > 0) {
+      showMessageTimer -= dt;
+      if (showMessageTimer <= 0) $('toast').style.opacity = '0';
+    }
+    if (phase === 'countdown') {
+      countdown -= dt;
+      const shown = Math.max(1, Math.ceil(countdown));
+      $('raceMessage').textContent = countdown > 0 ? String(shown) : '출발!';
+      if (countdown <= -0.65) { phase = 'racing'; $('raceMessage').textContent = ''; toast('경주 시작! 완주선을 향해 달리세요.'); }
+      return;
+    }
+    if (phase !== 'racing') return;
+
+    const worldDt = timeStop.active ? 0 : dt;
+    raceTime += worldDt;
+    for (const k of Object.keys(cooldowns)) {
+      // X 스킬 쿨타임은 다른 차원 안에서는 멈추고, 현실로 돌아온 뒤부터 감소합니다.
+      if (k === 'dimension' && dimension.active) continue;
+      cooldowns[k] = Math.max(0, cooldowns[k] - dt);
+    }
+    if (timeStop.active) {
+      timeStop.timeLeft = Math.max(0, timeStop.timeLeft - dt);
+      $('timeStopTimer').textContent = `${timeStop.timeLeft.toFixed(1)}초 · 나만 움직일 수 있어요`;
+      if (timeStop.timeLeft <= 0) {
+        timeStop.active = false;
+        $('timeStopBanner').style.display = 'none';
+        toast('시간이 다시 흐르기 시작했어요!');
+      }
+    }
+    if (dimension.active) {
+      dimension.timeLeft = Math.max(0, dimension.timeLeft - dt);
+      dimension.elapsed += dt;
+      $('dimensionTimer').textContent = `${dimension.timeLeft.toFixed(1)}초 남음 · AI는 현실에서 경주 중`;
+      if (dimension.timeLeft <= 0) {
+        dimension.active = false;
+        $('dimensionBanner').style.display = 'none';
+        toast(`현실로 복귀! 차원에서 ${Math.max(0, player.z - dimension.entryZ).toFixed(1)}m 이동했어요.`);
+      }
+    }
+    if (worldDt > 0 && dinoAttack && !dimension.active) {
+      dinoAttack.elapsed += worldDt;
+      dinoAttack.gait += worldDt * 13;
+      const target = dinoAttack.target;
+      if (target.eliminated) { target.beingChased = false; target.beingEaten = false; dinoAttack = null; }
+      else if (dinoAttack.phase === 'emerge') {
+        // 공룡이 코스 바닥에서 튀어나오는 짧은 등장 동작입니다. 플레이어 시점은 그대로입니다.
+        dinoAttack.emergeTimer = Math.max(0, dinoAttack.emergeTimer - dt);
+        if (dinoAttack.emergeTimer <= 0) dinoAttack.phase = 'run';
+      } else if (dinoAttack.phase === 'run') {
+        // 코스의 중앙선을 따라 달려가 목표 AI를 따라잡습니다.
+        const dinoRunSpeed = 54;
+        const catchLine = target.z - 2.2;
+        dinoAttack.z = Math.min(catchLine, dinoAttack.z + dinoRunSpeed * dt);
+        dinoAttack.z = Math.max(0, dinoAttack.z);
+        dinoAttack.x = trackCenter(dinoAttack.z);
+        if (dinoAttack.z >= target.z - 2.25 || target.z <= dinoAttack.z + 2.25) {
+          dinoAttack.z = Math.max(0, target.z - 2.0);
+          dinoAttack.x = trackCenter(dinoAttack.z);
+          dinoAttack.phase = 'eat';
+          dinoAttack.eatTimer = 1.65;
+          target.beingChased = false;
+          target.beingEaten = true;
+          toast('공룡이 AI를 따라잡았어요!');
+        }
+      } else if (dinoAttack.phase === 'eat') {
+        dinoAttack.eatTimer = Math.max(0, dinoAttack.eatTimer - dt);
+        dinoAttack.z = Math.max(0, target.z - 1.9);
+        dinoAttack.x = trackCenter(dinoAttack.z);
+        if (dinoAttack.eatTimer <= 0) {
+          target.beingEaten = false;
+          target.eliminated = true;
+          dinoAttack = null;
+          toast('Dio! 공룡이 AI 기수 한 명을 잡아먹었어요!');
+        }
+      }
+    }
+    player.slowTimer = Math.max(0, player.slowTimer - dt);
+    if (player.slowTimer <= 0) player.slowReason = '';
+
+    const forward = (keys.has('KeyW') ? 1 : 0) - (keys.has('KeyS') ? 1 : 0);
+    const side = (keys.has('KeyD') ? 1 : 0) - (keys.has('KeyA') ? 1 : 0);
+    const sprintHeld = keys.has('ShiftLeft') || keys.has('ShiftRight');
+    const sprintWanted = sprintHeld && forward > 0 && !player.staminaRecovering && player.stamina > 0.001;
+    if (sprintWanted) {
+      player.stamina = Math.max(0, player.stamina - dt);
+      if (player.stamina <= 0.001) player.staminaRecovering = true;
+    } else {
+      player.stamina = Math.min(30, player.stamina + dt * 2);
+      if (player.stamina >= 29.999) {
+        player.stamina = 30;
+        player.staminaRecovering = false;
+      }
+    }
+
+    let dx = 0, dz = 0;
+    if (forward || side) {
+      let f = forward, s = side;
+      const norm = Math.hypot(f, s) || 1;
+      f /= norm; s /= norm;
+      const slowMultiplier = player.slowTimer > 0 ? 0.55 : 1;
+      const dimensionMultiplier = dimension.active ? 1.40 : 1;
+      const forwardSpeed = (f < 0 ? 15 : (sprintWanted ? 35 : 23)) * slowMultiplier * dimensionMultiplier;
+      const sideSpeed = 14.5 * slowMultiplier * dimensionMultiplier;
+      dx = (Math.sin(player.yaw) * f * forwardSpeed + Math.cos(player.yaw) * s * sideSpeed) * dt;
+      dz = (Math.cos(player.yaw) * f * forwardSpeed - Math.sin(player.yaw) * s * sideSpeed) * dt;
+    }
+
+    if (rope) {
+      rope.time -= dt;
+      const rx = rope.x - player.x, rz = rope.z - player.z;
+      const distance = Math.hypot(rx, rz);
+      const pull = Math.min(distance, 17 * dt);
+      if (distance > 0.001) { dx += rx / distance * pull; dz += rz / distance * pull; }
+      if (distance < 2 || rope.time <= 0) { rope = null; toast('밧줄 이동 완료!'); }
+    }
+    player.prevX = player.x; player.prevZ = player.z;
+    player.x += dx; player.z += dz;
+    clampToTrack();
+    player.speed = dt > 0 ? Math.hypot(dx, dz) / dt : 0;
+    // 더월드 중에도 플레이어는 움직이므로 말의 다리 애니메이션은 현실 시간으로 계속 진행합니다.
+    player.gaitTime += dt * (player.speed > 0.5 ? 11 : 1.8);
+
+    if (player.y > 0 || player.vy > 0) {
+      player.y += player.vy * dt;
+      player.vy -= GRAVITY * dt;
+      if (player.y < 0) { player.y = 0; player.vy = 0; }
+    }
+
+    if (steelBall) {
+      if (steelBall.state === 'orbit') {
+        steelBall.angle += worldDt * 5.1;
+        steelBall.timer -= worldDt;
+        steelBall.lastX = player.x + Math.cos(steelBall.angle) * 4.3;
+        steelBall.lastZ = player.z + Math.sin(steelBall.angle) * 4.3;
+        steelBall.lastY = player.y + 2.6 + Math.sin(steelBall.angle * 1.8) * .55;
+        if (steelBall.timer <= 0) { steelBall.state = 'return'; steelBall.returnTimer = .65; toast('철구가 돌아옵니다!'); }
+      } else {
+        steelBall.returnTimer -= worldDt;
+        if (steelBall.returnTimer <= 0) steelBall = null;
+      }
+    }
+
+    if (worldDt > 0) ai.forEach((rider, i) => {
+      rider.pillarHitFlash = Math.max(0, (rider.pillarHitFlash || 0) - worldDt);
+      // 다른 차원에서도 AI는 멈추지 않고 평소처럼 경주와 스킬을 계속합니다.
+      if (rider.eliminated || rider.beingEaten || rider.beingPillarStruck) return;
+      rider.prevX = Number.isFinite(rider.x) ? rider.x : trackCenter(rider.z) + rider.lane;
+      rider.prevZ = rider.z;
+      // AI 기수도 플레이어처럼 질주 스태미나를 쓰고 회복합니다.
+      rider.jumpCooldown = Math.max(0, rider.jumpCooldown - worldDt);
+      rider.ropeCooldown = Math.max(0, rider.ropeCooldown - worldDt);
+      rider.ballCooldown = Math.max(0, rider.ballCooldown - worldDt);
+      rider.slowTimer = Math.max(0, rider.slowTimer - worldDt);
+      rider.skillThink -= dt;
+
+      if (rider.stamina <= 0.001 && !rider.staminaRecovering) rider.staminaRecovering = true;
+      if (rider.staminaRecovering) {
+        rider.sprinting = false;
+        rider.stamina = Math.min(30, rider.stamina + worldDt * 2);
+        if (rider.stamina >= 29.999) {
+          rider.stamina = 30;
+          rider.staminaRecovering = false;
+          rider.sprintPause = 2;
+          rider.sprintBurst = 4.5 + Math.random() * 4;
+        }
+      } else if (rider.sprintPause > 0) {
+        rider.sprintPause = Math.max(0, rider.sprintPause - worldDt);
+        rider.sprinting = false;
+        rider.stamina = Math.min(30, rider.stamina + worldDt * 2);
+      } else {
+        rider.sprinting = rider.sprintBurst > 0;
+        if (rider.sprinting) {
+          rider.sprintBurst -= dt;
+          rider.stamina = Math.max(0, rider.stamina - worldDt);
+          if (rider.stamina <= 0.001) rider.staminaRecovering = true;
+          if (rider.sprintBurst <= 0) {
+            rider.sprintBurst = 4.5 + Math.random() * 4;
+            rider.sprintPause = 3.5 + Math.random() * 3.5;
+          }
+        } else {
+          rider.stamina = Math.min(30, rider.stamina + worldDt * 2);
+          rider.sprintPause = 2 + Math.random() * 2;
+        }
+      }
+
+      // C, F, G 스킬을 상황에 맞춰 번갈아 사용합니다.
+      if (rider.skillThink <= 0) {
+        const readySkills = [];
+        if (rider.jumpCooldown <= 0) readySkills.push('jump');
+        if (rider.ropeCooldown <= 0) readySkills.push('rope');
+        if (rider.ballCooldown <= 0) readySkills.push('ball');
+        if (readySkills.length) {
+          const skill = readySkills[Math.floor(Math.random() * readySkills.length)];
+          if (skill === 'jump') {
+            rider.jumpCooldown = 10;
+            if (rider.y <= 0.02) rider.vy = 13.5;
+            rider.jumpFlash = .65;
+          } else if (skill === 'rope') {
+            rider.ropeCooldown = 10;
+            rider.ropeBoost = .9;
+            rider.ropeEffect = .9;
+          } else {
+            rider.ballCooldown = 10;
+            rider.ballTimer = 5;
+            rider.ballAngle = Math.random() * Math.PI * 2;
+            rider.ballHitTargets = new Set();
+          }
+        }
+        rider.skillThink = 1.5 + Math.random() * 2.2;
+      }
+
+      rider.ropeBoost = Math.max(0, rider.ropeBoost - worldDt);
+      rider.ropeEffect = Math.max(0, rider.ropeEffect - worldDt);
+      rider.jumpFlash = Math.max(0, (rider.jumpFlash || 0) - worldDt);
+      if (rider.ballTimer > 0) {
+        rider.ballTimer = Math.max(0, rider.ballTimer - worldDt);
+        rider.ballAngle += dt * 5.4;
+      }
+      if (rider.y > 0 || rider.vy > 0) {
+        rider.y += rider.vy * worldDt;
+        rider.vy -= GRAVITY * worldDt;
+        if (rider.y < 0) { rider.y = 0; rider.vy = 0; }
+      }
+
+      const sprintMultiplier = rider.sprinting ? 1.34 : 1;
+      const ropeMultiplier = rider.ropeBoost > 0 ? 1.58 : 1;
+      const hitSlowMultiplier = rider.slowTimer > 0 ? 0.55 : 1;
+      const aiSpeed = rider.speed * sprintMultiplier * ropeMultiplier * hitSlowMultiplier;
+      if (rider.z < FINISH) rider.z = Math.min(FINISH, rider.z + aiSpeed * worldDt);
+      rider.x = trackCenter(rider.z) + rider.lane + Math.sin(raceTime * 1.05 + i) * .55;
+    });
+
+    updateLoveTrain(worldDt);
+    if (worldDt > 0) applySteelBallCollisions();
+    // 선인장은 고정 장애물이므로 멈춘 시간에도 움직이는 플레이어에게만 충돌합니다.
+    applyCactusCollisions(timeStop.active);
+
+    if (player.z >= FINISH - .01) finishRace();
+    updateHud();
+  }
+
+  function updateLoveTrain(dt) {
+    const attack = loveTrainAttack;
+    if (!attack) return;
+    attack.elapsed += dt;
+    attack.angle += dt * 4.6;
+    for (const impact of attack.impacts) impact.timer = Math.max(0, impact.timer - dt);
+    attack.impacts = attack.impacts.filter(impact => impact.timer > 0);
+
+    if (attack.target.eliminated && attack.phase !== 'finish') {
+      attack.target.beingPillarStruck = false;
+      loveTrainAttack = null;
+      return;
+    }
+
+    if (attack.phase === 'orbit') {
+      attack.orbitTime = Math.max(0, attack.orbitTime - dt);
+      if (attack.orbitTime <= 0) {
+        const target = attack.target;
+        if (!target || target.eliminated) { loveTrainAttack = null; return; }
+        attack.phase = 'rain';
+        attack.baseZ = target.z;
+        attack.laneOffset = target.x - trackCenter(target.z);
+        attack.strikeElapsed = 0;
+        attack.strikeIndex = 0;
+        target.beingPillarStruck = true;
+        toast(`${target.name}에게 황금 기둥이 떨어집니다!`);
+      }
+    } else if (attack.phase === 'rain') {
+      attack.strikeElapsed += dt;
+      const fallDuration = .42;
+      const cycleDuration = .76;
+      if (!attack.currentHit && attack.strikeElapsed >= fallDuration) {
+        attack.currentHit = true;
+        const offset = [-4.2, 0, 4.2][attack.strikeIndex];
+        const strikeZ = Math.max(0, Math.min(FINISH, attack.baseZ + offset));
+        const strikeX = trackCenter(strikeZ) + attack.laneOffset;
+        attack.impacts.push({ x: strikeX, z: strikeZ, timer: .58, maxTimer: .58 });
+        attack.target.pillarHitFlash = .58;
+        toast(`러브트레인! 황금 기둥 ${attack.strikeIndex + 1}/3!`);
+        if (attack.strikeIndex === 2) {
+          attack.target.beingPillarStruck = false;
+          attack.target.eliminated = true;
+          attack.target.eliminatedByLoveTrain = true;
+          attack.phase = 'finish';
+          attack.finishTimer = .85;
+          toast(`${attack.target.name}이(가) 황금 기둥 세 번을 맞고 탈락했어요!`);
+        }
+      }
+      if (attack.phase === 'rain' && attack.strikeElapsed >= cycleDuration) {
+        attack.strikeElapsed -= cycleDuration;
+        attack.strikeIndex++;
+        attack.currentHit = false;
+      }
+    } else if (attack.phase === 'finish') {
+      attack.finishTimer = Math.max(0, attack.finishTimer - dt);
+      if (attack.finishTimer <= 0 && attack.impacts.length === 0) loveTrainAttack = null;
+    }
+  }
+
+  // 선인장에 닿으면 플레이어와 AI 모두 1초 동안 이동 속도가 느려집니다.
+  // 작은 충돌 반경을 사용해 선인장 그림 가장자리에 스치는 정도로는 맞지 않습니다.
+  function applyCactusCollisions(freezeAI = false) {
+    const hit = (racer, onHit) => {
+      for (let i = 0; i < cactusObstacles.length; i++) {
+        if (racer.hitCacti.has(i)) continue;
+        const cactus = cactusObstacles[i];
+        // 프레임 사이를 빠르게 지나가도 놓치지 않도록 이동 선분에서 가장 가까운 지점을 검사합니다.
+        const sx = Number.isFinite(racer.prevX) ? racer.prevX : racer.x;
+        const sz = Number.isFinite(racer.prevZ) ? racer.prevZ : racer.z;
+        const vx = racer.x - sx;
+        const vz = racer.z - sz;
+        const lengthSq = vx * vx + vz * vz;
+        const t = lengthSq > 0 ? Math.max(0, Math.min(1, ((cactus.x - sx) * vx + (cactus.z - sz) * vz) / lengthSq)) : 1;
+        const dx = sx + vx * t - cactus.x;
+        const dz = sz + vz * t - cactus.z;
+        if (dx * dx + dz * dz <= cactus.hitRadius * cactus.hitRadius) {
+          racer.hitCacti.add(i);
+          onHit();
+        }
+      }
+    };
+
+    hit(player, () => {
+      if (player.slowTimer < 1) player.slowReason = '선인장 충돌';
+      player.slowTimer = Math.max(player.slowTimer, 1);
+      toast('선인장에 부딪혔어요! 1초 동안 속도가 느려집니다!');
+    });
+
+    if (freezeAI) return;
+    ai.forEach((rider, index) => {
+      if (rider.eliminated || rider.beingEaten || rider.beingPillarStruck) return;
+      hit(rider, () => {
+        rider.slowTimer = Math.max(rider.slowTimer, 1);
+        toast(`${rider.name}이(가) 선인장에 부딪혔어요!`);
+      });
+    });
+  }
+
+  // 철구는 주인을 제외한 상대에게 맞으면 3초 동안 이동 속도를 45% 낮춥니다.
+  // 한 번의 철구 사용으로 같은 상대를 계속 때려 무한히 느려지지 않도록 1회만 판정합니다.
+  function applySteelBallCollisions() {
+    // 다른 차원에 있는 플레이어는 현실의 AI와 철구를 주고받지 않습니다.
+    // AI끼리의 철구 충돌은 현실에서 계속 처리합니다.
+    const targets = [
+      ...(!dimension.active ? [{ id: 'player', x: player.x, z: player.z, y: player.y, setSlow: () => { player.slowTimer = 3; player.slowReason = '철구 충격'; } }] : []),
+      ...ai.map((rider, index) => ({ rider, index })).filter(v => !v.rider.eliminated && !v.rider.beingEaten && !v.rider.beingPillarStruck).map(({rider, index}) => ({
+        id: `ai${index}`, x: rider.x, z: rider.z, y: rider.y,
+        setSlow: () => { rider.slowTimer = 3; }
+      }))
+    ];
+
+    const activeBalls = [];
+    if (!dimension.active && steelBall && steelBall.state === 'orbit') {
+      activeBalls.push({ ownerId: 'player', x: steelBall.lastX, z: steelBall.lastZ, y: steelBall.lastY, hitTargets: steelBall.hitTargets });
+    }
+    ai.forEach((rider, index) => {
+      if (!rider.eliminated && !rider.beingEaten && !rider.beingPillarStruck && rider.ballTimer > 0) {
+        activeBalls.push({
+          ownerId: `ai${index}`,
+          x: rider.x + Math.cos(rider.ballAngle) * 3.7,
+          z: rider.z + Math.sin(rider.ballAngle) * 3.7,
+          y: rider.y + 2.35 + Math.sin(rider.ballAngle * 1.8) * .45,
+          hitTargets: rider.ballHitTargets
+        });
+      }
+    });
+
+    for (const ball of activeBalls) {
+      for (const target of targets) {
+        if (target.id === ball.ownerId || ball.hitTargets.has(target.id)) continue;
+        const dx = ball.x - target.x;
+        const dz = ball.z - target.z;
+        const horizontalDistance = Math.hypot(dx, dz);
+        const verticalDistance = Math.abs(ball.y - (target.y + 1.1));
+        if (horizontalDistance < 2.6 && verticalDistance < 3.2) {
+          ball.hitTargets.add(target.id);
+          target.setSlow();
+          if (target.id === 'player') toast('철구에 맞았어요! 3초 동안 속도가 느려집니다!');
+          else toast(`${ai[Number(target.id.slice(2))].name}이(가) 철구에 맞았어요!`);
+        }
+      }
+    }
+  }
+
+  function finishRace() {
+    if (phase === 'finished') return;
+    phase = 'finished';
+    dimension.active = false; dimension.timeLeft = 0; $('dimensionBanner').style.display = 'none';
+    timeStop.active = false; timeStop.timeLeft = 0; $('timeStopBanner').style.display = 'none';
+    $('theWorldShout').classList.remove('show');
+    $('dimensionShout').classList.remove('show'); dimensionShoutTimer = 0;
+    $('loveTrainShout').classList.remove('show'); loveTrainShoutTimer = 0;
+    if (loveTrainAttack && loveTrainAttack.target) loveTrainAttack.target.beingPillarStruck = false;
+    loveTrainAttack = null;
+    keys.clear();
+    const place = 1 + ai.filter(r => !r.eliminated && r.z > player.z).length;
+    $('resultTitle').textContent = '완주 성공!';
+    $('resultText').innerHTML = `사막 코스를 끝까지 달렸어요!<br><b>최종 순위: ${place}위 / ${ai.length + 1}위</b><br>경주 시간: ${raceTime.toFixed(1)}초<br><span style="color:#f2d4a5;font-size:13px">완주가 성공 조건이에요. 멋진 경주였어요!</span>`;
+    overlay.style.display = 'flex'; introCard.style.display = 'none'; resultCard.style.display = 'block';
+    if (document.pointerLockElement) document.exitPointerLock?.();
+  }
+
+  function updateHud() {
+    const remaining = Math.max(0, FINISH - player.z);
+    $('distanceValue').textContent = Math.ceil(remaining).toLocaleString('ko-KR');
+    $('progressFill').style.width = (Math.max(0, Math.min(1, player.z / FINISH)) * 100) + '%';
+    $('staminaFill').style.width = (player.stamina / 30 * 100) + '%';
+    $('staminaText').textContent = player.stamina > .1 ? `${Math.ceil(player.stamina)}초 남음` : '회복 중 · 15초';
+    $('rankLabel').textContent = dimension.active ? '현실 기준 순위' : '현재 순위';
+    $('rankValue').textContent = 1 + ai.filter(r => !r.eliminated && r.z > player.z).length;
+    $('rankSuffix').textContent = ` / ${ai.length + 1}위`;
+    $('speedValue').textContent = Math.round(player.speed * 3.6);
+    $('slowStatus').style.display = player.slowTimer > 0 ? 'block' : 'none';
+    $('slowStatus').textContent = player.slowTimer > 0 ? `${player.slowReason || '충돌'}! ${player.slowTimer.toFixed(1)}초 속도 감소` : '';
+    $('viewValue').textContent = firstPerson ? '1인칭 시점' : '3인칭 시점';
+    $('jumpState').textContent = cooldowns.jump > 0 ? `${cooldowns.jump.toFixed(1)}초` : '사용 가능';
+    $('ropeState').textContent = cooldowns.rope > 0 ? `${cooldowns.rope.toFixed(1)}초` : '사용 가능';
+    $('ballState').textContent = cooldowns.ball > 0 ? `${cooldowns.ball.toFixed(1)}초` : '사용 가능';
+    $('dinoState').textContent = dimension.active ? '차원에서는 사용 불가' : (cooldowns.dino > 0 ? `${cooldowns.dino.toFixed(1)}초` : '사용 가능');
+    $('dimensionState').textContent = dimension.active ? `${dimension.timeLeft.toFixed(1)}초 남음` : (cooldowns.dimension > 0 ? `${cooldowns.dimension.toFixed(1)}초` : '사용 가능');
+    $('loveTrainState').textContent = loveTrainAttack ? (loveTrainAttack.phase === 'orbit' ? '기둥 회전 중' : loveTrainAttack.phase === 'rain' ? `${loveTrainAttack.strikeIndex + 1}/3 공격` : '공격 완료') : (cooldowns.loveTrain > 0 ? `${cooldowns.loveTrain.toFixed(1)}초` : '사용 가능');
+    $('timeStopState').textContent = timeStop.active ? `${timeStop.timeLeft.toFixed(1)}초 정지` : (cooldowns.timeStop > 0 ? `${cooldowns.timeStop.toFixed(1)}초` : '사용 가능');
+    $('sprintState').textContent = player.stamina > .1 ? `${Math.ceil(player.stamina)}초 남음` : '회복 중';
+  }
+
+  function currentCamera() {
+    // 공룡 스킬이 실행되어도 카메라는 계속 플레이어를 기준으로 유지합니다.
+    // 플레이어는 평소처럼 이동하고, 공룡만 코스 위에서 달립니다.
+    return firstPerson
+      ? { x: player.x, z: player.z, yaw: player.yaw, height: 2.55 + player.y, horizon: H*.36 }
+      : { x: player.x - Math.sin(player.yaw)*15, z: player.z - Math.cos(player.yaw)*15, yaw: player.yaw, height: 5.3 + player.y*.45, horizon: H*.36 };
+  }
+
+  function project(x, z, y, camera) {
+    const dx = x - camera.x;
+    const dz = z - camera.z;
+    const forwardZ = dx * Math.sin(camera.yaw) + dz * Math.cos(camera.yaw);
+    const cameraX = dx * Math.cos(camera.yaw) - dz * Math.sin(camera.yaw);
+    if (forwardZ < 1.5) return null;
+    const focal = H * .93;
+    const scale = focal / forwardZ;
+    return { x: W * .5 + cameraX * scale, y: camera.horizon + (camera.height - y) * scale, scale, depth: forwardZ };
+  }
+
+  function polygon(points, fill, stroke, lineWidth) {
+    if (points.some(p => !p)) return;
+    ctx.beginPath(); ctx.moveTo(points[0].x, points[0].y);
+    for (let i = 1; i < points.length; i++) ctx.lineTo(points[i].x, points[i].y);
+    ctx.closePath();
+    if (fill) { ctx.fillStyle = fill; ctx.fill(); }
+    if (stroke) { ctx.strokeStyle = stroke; ctx.lineWidth = lineWidth || 1; ctx.stroke(); }
+  }
+
+  function drawSky() {
+    const sky = ctx.createLinearGradient(0, 0, 0, H * .68);
+    if (dimension.active) {
+      sky.addColorStop(0, '#10133d'); sky.addColorStop(.5, '#34306d'); sky.addColorStop(1, '#8060a0');
+      ctx.fillStyle = sky; ctx.fillRect(0, 0, W, H);
+      const moonX = W * .76, moonY = H * .17, moonR = Math.min(W, H) * .062;
+      const glow = ctx.createRadialGradient(moonX, moonY, moonR * .1, moonX, moonY, moonR * 3.4);
+      glow.addColorStop(0, 'rgba(177,230,255,.75)'); glow.addColorStop(1, 'rgba(114,104,255,0)');
+      ctx.fillStyle = glow; ctx.beginPath(); ctx.arc(moonX, moonY, moonR * 3.4, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#d8f5ff'; ctx.beginPath(); ctx.arc(moonX, moonY, moonR, 0, Math.PI * 2); ctx.fill();
+      for (let i = 0; i < 70; i++) {
+        const sx = (i * 127.7 + 31) % W;
+        const sy = (i * 53.9 + 17) % (H * .45);
+        const radius = 1 + (i % 3) * .55;
+        ctx.fillStyle = `rgba(210,235,255,${.35 + (i % 5) * .12})`;
+        ctx.beginPath(); ctx.arc(sx, sy, radius, 0, Math.PI * 2); ctx.fill();
+      }
+    } else {
+      sky.addColorStop(0, '#65a9c0'); sky.addColorStop(.58, '#f3c47c'); sky.addColorStop(1, '#f7d59b');
+      ctx.fillStyle = sky; ctx.fillRect(0, 0, W, H);
+      const sunX = W * .78, sunY = H * .19, sunR = Math.min(W, H) * .055;
+      const glow = ctx.createRadialGradient(sunX, sunY, sunR * .15, sunX, sunY, sunR * 2.5);
+      glow.addColorStop(0, 'rgba(255,244,190,.85)'); glow.addColorStop(1, 'rgba(255,226,157,0)');
+      ctx.fillStyle = glow; ctx.beginPath(); ctx.arc(sunX, sunY, sunR * 2.5, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#fff0bc'; ctx.beginPath(); ctx.arc(sunX, sunY, sunR, 0, Math.PI * 2); ctx.fill();
+    }
+    // 멀리 겹쳐진 사막 언덕 / 차원에서는 보랏빛 수정 언덕
+    for (let layer = 0; layer < 3; layer++) {
+      const base = H * (.36 + layer * .055);
+      ctx.beginPath(); ctx.moveTo(0, H);
+      for (let x = 0; x <= W + 20; x += 20) {
+        const y = base + Math.sin(x * (.004 + layer * .001) + layer * 2.1) * (18 + layer * 12) + Math.sin(x * .011 + layer) * 7;
+        ctx.lineTo(x, y);
+      }
+      ctx.lineTo(W, H); ctx.closePath();
+      const normalColors = ['#dba768','#c98e50','#b8783e'];
+      const dimensionColors = ['#8b79bb','#63569a','#40366f'];
+      ctx.fillStyle = (dimension.active ? dimensionColors : normalColors)[layer]; ctx.fill();
+    }
+  }
+
+  function drawRoad(camera) {
+    const startOffset = firstPerson ? 4 : -23;
+    const roadOriginZ = player.z;
+    for (let d = 350; d > startOffset; d -= 6) {
+      const zFar = roadOriginZ + d;
+      const zNear = zFar - 6;
+      const cFar = trackCenter(zFar), cNear = trackCenter(zNear);
+      const leftFar = project(cFar - ROAD_HALF, zFar, 0, camera);
+      const rightFar = project(cFar + ROAD_HALF, zFar, 0, camera);
+      const leftNear = project(cNear - ROAD_HALF, zNear, 0, camera);
+      const rightNear = project(cNear + ROAD_HALF, zNear, 0, camera);
+      if (!leftFar || !rightFar || !leftNear || !rightNear) continue;
+      // 밝은 모래 어깨와 다져진 경주로
+      const shoulder = 1.5;
+      polygon([
+        project(cFar - ROAD_HALF - shoulder, zFar, 0, camera),
+        project(cFar + ROAD_HALF + shoulder, zFar, 0, camera),
+        project(cNear + ROAD_HALF + shoulder, zNear, 0, camera),
+        project(cNear - ROAD_HALF - shoulder, zNear, 0, camera)
+      ], dimension.active ? '#584b8d' : '#e9bd7d');
+      polygon([leftFar, rightFar, rightNear, leftNear], dimension.active
+        ? (Math.floor(d / 6) % 2 ? '#3b326b' : '#51427f')
+        : (Math.floor(d / 6) % 2 ? '#b8773d' : '#c18147'));
+      // 도로 중앙의 짧은 노란 점선
+      if (Math.floor(d / 6) % 3 !== 1) {
+        const mFar = project(cFar, zFar, .025, camera), mNear = project(cNear, zNear, .025, camera);
+        if (mFar && mNear) {
+          ctx.strokeStyle = dimension.active ? 'rgba(142,231,255,.92)' : 'rgba(255,224,145,.78)'; ctx.lineWidth = Math.max(1, mNear.scale * .19);
+          ctx.beginPath(); ctx.moveTo(mFar.x, mFar.y); ctx.lineTo(mNear.x, mNear.y); ctx.stroke();
+        }
+      }
+      // 도로 양쪽의 경계선
+      ctx.strokeStyle = dimension.active ? 'rgba(172,205,255,.9)' : 'rgba(255,237,194,.9)'; ctx.lineWidth = Math.max(1, leftNear.scale * .22);
+      ctx.beginPath(); ctx.moveTo(leftFar.x, leftFar.y); ctx.lineTo(leftNear.x, leftNear.y); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(rightFar.x, rightFar.y); ctx.lineTo(rightNear.x, rightNear.y); ctx.stroke();
+    }
+    // 결승선
+    const finishP1 = project(trackCenter(FINISH) - ROAD_HALF, FINISH, .04, camera);
+    const finishP2 = project(trackCenter(FINISH) + ROAD_HALF, FINISH, .04, camera);
+    if (finishP1 && finishP2) {
+      const cell = Math.max(4, finishP1.scale * 1.2);
+      const count = 16;
+      for (let i = 0; i < count; i++) {
+        const t1 = i / count, t2 = (i + 1) / count;
+        const a = { x: finishP1.x + (finishP2.x - finishP1.x) * t1, y: finishP1.y + (finishP2.y - finishP1.y) * t1 };
+        const b = { x: finishP1.x + (finishP2.x - finishP1.x) * t2, y: finishP1.y + (finishP2.y - finishP1.y) * t2 };
+        ctx.strokeStyle = i % 2 ? '#fff' : '#33261d'; ctx.lineWidth = cell; ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+      }
+      if (finishP1.depth < 320) {
+        const mid = (finishP1.x + finishP2.x) * .5;
+        ctx.fillStyle = '#fff2c8'; ctx.font = `bold ${Math.max(10, Math.min(26, finishP1.scale * 2.2))}px sans-serif`; ctx.textAlign = 'center'; ctx.fillText('FINISH', mid, finishP1.y - Math.max(10, finishP1.scale * 2));
+      }
+    }
+  }
+
+  function drawCactus(p, size) {
+    const s = Math.max(.25, Math.min(22, size));
+    ctx.save(); ctx.translate(p.x, p.y);
+    ctx.strokeStyle = dimension.active ? '#4bb5b4' : '#477044'; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.lineWidth = Math.max(2, s * .28);
+    ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(0, -s * 3.8); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0, -s * 1.6); ctx.lineTo(-s * .65, -s * 1.6); ctx.lineTo(-s * .65, -s * 2.7); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0, -s * 2.2); ctx.lineTo(s * .7, -s * 2.2); ctx.lineTo(s * .7, -s * 3.1); ctx.stroke();
+    ctx.fillStyle = dimension.active ? '#8adcf0' : '#6d9654'; ctx.beginPath(); ctx.ellipse(-s * .09, -s * 3.7, s * .12, s * .22, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+  }
+  function drawDecorations(camera) {
+    for (const item of decor) {
+      const p = project(item.x, item.z, 0, camera);
+      if (!p || p.depth > 330 || p.x < -80 || p.x > W + 80) continue;
+      const s = p.scale * item.size;
+      if (item.type === 'cactus') drawCactus(p, s);
+      else {
+        ctx.fillStyle = dimension.active ? '#637bb3' : '#9b7654'; ctx.beginPath(); ctx.ellipse(p.x, p.y - s * .22, s * 1.05, s * .42, -.15, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = dimension.active ? 'rgba(172,232,255,.42)' : 'rgba(255,220,164,.35)'; ctx.beginPath(); ctx.ellipse(p.x - s * .24, p.y - s * .35, s * .35, s * .12, -.2, 0, Math.PI * 2); ctx.fill();
+      }
+    }
+    // 코스 위 장애물 선인장: 충돌 판정과 별개로 눈에 잘 띄게 그립니다.
+    for (const cactus of cactusObstacles) {
+      const p = project(cactus.x, cactus.z, 0, camera);
+      if (!p || p.depth > 330 || p.x < -100 || p.x > W + 100) continue;
+      drawCactus(p, p.scale * cactus.size);
+    }
+  }
+
+  function drawRider(p, horseColor, riderColor, name, isPlayer, gaitPhase = 0) {
+    if (!p) return;
+    const s = Math.max(.55, Math.min(32, p.scale));
+    const x = p.x, y = p.y;
+    ctx.save();
+    // 네 다리를 서로 다른 박자로 흔들어 달리는 말의 질주 동작을 표현합니다.
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    const legs = [
+      { hip: -.53, phase: gaitPhase, near: false },
+      { hip: -.34, phase: gaitPhase + Math.PI * .92, near: true },
+      { hip: .37, phase: gaitPhase + Math.PI, near: false },
+      { hip: .55, phase: gaitPhase + Math.PI * 1.88, near: true }
+    ];
+    for (const leg of legs) {
+      const swing = Math.sin(leg.phase) * .24;
+      const lift = Math.max(0, Math.cos(leg.phase)) * .16;
+      const hipX = x + leg.hip * s;
+      const hipY = y - .53 * s;
+      const kneeX = hipX + (leg.hip < 0 ? -.09 : .08) * s + swing * s * .55;
+      const kneeY = y - (.28 + lift * .45) * s;
+      const hoofX = hipX + swing * s;
+      const hoofY = y - lift * s;
+      ctx.strokeStyle = leg.near ? '#38251b' : 'rgba(56,37,27,.72)';
+      ctx.lineWidth = Math.max(1.8, s * (leg.near ? .16 : .12));
+      ctx.beginPath(); ctx.moveTo(hipX, hipY); ctx.lineTo(kneeX, kneeY); ctx.lineTo(hoofX, hoofY); ctx.stroke();
+      ctx.strokeStyle = '#241a15'; ctx.lineWidth = Math.max(1.5, s * .11);
+      ctx.beginPath(); ctx.moveTo(hoofX - .07*s, hoofY); ctx.lineTo(hoofX + .08*s, hoofY); ctx.stroke();
+    }
+    // 말 몸통과 목
+    ctx.fillStyle = horseColor; ctx.beginPath(); ctx.ellipse(x, y - .72*s, .86*s, .48*s, -.05, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(x + .35*s, y - .88*s); ctx.lineTo(x + .55*s, y - 1.65*s); ctx.lineTo(x + .83*s, y - 1.77*s); ctx.lineTo(x + .7*s, y - .95*s); ctx.closePath(); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(x + .83*s, y - 1.73*s, .31*s, .22*s, -.15, 0, Math.PI*2); ctx.fill();
+    ctx.strokeStyle = '#2e2119'; ctx.lineWidth = Math.max(1.5, .13*s); ctx.beginPath(); ctx.moveTo(x + .3*s, y - 1.05*s); ctx.quadraticCurveTo(x + .55*s, y - 1.45*s, x + .73*s, y - 1.78*s); ctx.stroke();
+    // 기수
+    ctx.fillStyle = riderColor; ctx.beginPath(); ctx.ellipse(x - .04*s, y - 1.48*s, .37*s, .43*s, -.12, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#38241a'; ctx.beginPath(); ctx.arc(x - .08*s, y - 2.03*s, .25*s, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#f3d6a0'; ctx.fillRect(x - .31*s, y - 1.62*s, .57*s, .12*s);
+    if (name && p.depth < 180) {
+      ctx.textAlign = 'center'; ctx.font = `bold ${Math.max(9, Math.min(14, s*1.15))}px sans-serif`;
+      ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(50,27,14,.75)'; ctx.strokeText(name, x, y - 2.35*s);
+      ctx.fillStyle = '#fff1ca'; ctx.fillText(name, x, y - 2.35*s);
+    }
+    if (isPlayer) {
+      ctx.strokeStyle = 'rgba(255,237,189,.8)'; ctx.lineWidth = Math.max(1, s*.1); ctx.beginPath(); ctx.arc(x, y - 1.1*s, .95*s, Math.PI, Math.PI*2); ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  function drawAiSkillEffects(rider, camera, riderPoint) {
+    if (rider.sprinting) {
+      // 질주 중 말 뒤로 흩날리는 모래먼지
+      for (let i = 0; i < 3; i++) {
+        const dust = project(rider.x + (i - 1) * .8, rider.z - 2.5 - i * 1.4, 0, camera);
+        if (!dust) continue;
+        const radius = Math.max(2, Math.min(13, dust.scale * .38));
+        ctx.fillStyle = `rgba(244, 207, 151, ${.32 - i * .07})`;
+        ctx.beginPath(); ctx.arc(dust.x, dust.y, radius, 0, Math.PI * 2); ctx.fill();
+      }
+    }
+    if (rider.ropeEffect > 0) {
+      const end = project(trackCenter(rider.z + 28) + rider.lane, rider.z + 28, 1.4, camera);
+      if (end) {
+        ctx.save();
+        ctx.strokeStyle = 'rgba(255, 224, 133, .95)';
+        ctx.lineWidth = Math.max(1.5, riderPoint.scale * .12);
+        ctx.setLineDash([7, 5]);
+        ctx.beginPath(); ctx.moveTo(riderPoint.x, riderPoint.y - riderPoint.scale * 1.35); ctx.lineTo(end.x, end.y); ctx.stroke();
+        ctx.restore();
+      }
+    }
+    if (rider.ballTimer > 0) {
+      const bx = rider.x + Math.cos(rider.ballAngle) * 3.7;
+      const bz = rider.z + Math.sin(rider.ballAngle) * 3.7;
+      const by = rider.y + 2.35 + Math.sin(rider.ballAngle * 1.8) * .45;
+      const ballPoint = project(bx, bz, by, camera);
+      if (ballPoint) {
+        const radius = Math.max(3, Math.min(18, ballPoint.scale * .72));
+        const gradient = ctx.createRadialGradient(ballPoint.x - radius * .3, ballPoint.y - radius * .35, 1, ballPoint.x, ballPoint.y, radius);
+        gradient.addColorStop(0, '#f4f4f4'); gradient.addColorStop(.3, '#b9bdc2'); gradient.addColorStop(.72, '#707780'); gradient.addColorStop(1, '#343a42');
+        ctx.fillStyle = gradient; ctx.beginPath(); ctx.arc(ballPoint.x, ballPoint.y, radius, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = 'rgba(238,242,246,.95)'; ctx.lineWidth = Math.max(1, radius * .08);
+        ctx.beginPath(); ctx.arc(ballPoint.x, ballPoint.y, radius * .72, -.8, 1.2); ctx.stroke();
+      }
+    }
+  }
+
+  function drawSteelBall(camera) {
+    if (!steelBall) return;
+    let bx, bz, by;
+    if (steelBall.state === 'orbit') { bx = steelBall.lastX; bz = steelBall.lastZ; by = steelBall.lastY; }
+    else {
+      const t = Math.max(0, Math.min(1, steelBall.returnTimer / .65));
+      bx = player.x + (steelBall.lastX - player.x) * t;
+      bz = player.z + (steelBall.lastZ - player.z) * t;
+      by = player.y + 2.2 + (steelBall.lastY - player.y - 2.2) * t;
+    }
+    const p = project(bx, bz, by, camera);
+    if (!p) return;
+    const r = Math.max(3, Math.min(30, p.scale * .8));
+    const grad = ctx.createRadialGradient(p.x-r*.35,p.y-r*.4,r*.08,p.x,p.y,r);
+    grad.addColorStop(0,'#ffffff'); grad.addColorStop(.22,'#cbd0d6'); grad.addColorStop(.55,'#858c95'); grad.addColorStop(.82,'#4c535c'); grad.addColorStop(1,'#242a31');
+    ctx.fillStyle = grad; ctx.beginPath(); ctx.arc(p.x,p.y,r,0,Math.PI*2); ctx.fill();
+    ctx.strokeStyle = 'rgba(245,247,250,.9)'; ctx.lineWidth = Math.max(1,r*.08); ctx.beginPath(); ctx.arc(p.x-r*.1,p.y-r*.08,r*.72,-1.9,.8); ctx.stroke();
+  }
+
+  function drawRope(camera) {
+    if (!rope) return;
+    const anchor = project(rope.x, rope.z, 1.5, camera);
+    if (!anchor) return;
+    let start;
+    if (firstPerson) start = { x: W*.5, y: H*.78 };
+    else start = project(player.x, player.z, player.y + 1.3, camera);
+    if (!start) return;
+    ctx.save(); ctx.strokeStyle = '#52341e'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(start.x,start.y); ctx.lineTo(anchor.x,anchor.y); ctx.stroke();
+    ctx.fillStyle = '#f8df9e'; ctx.beginPath(); ctx.arc(anchor.x,anchor.y,5,0,Math.PI*2); ctx.fill(); ctx.restore();
+  }
+
+  function drawFirstPersonHorse() {
+    const center = W * .5;
+    const y = H;
+    ctx.save();
+    // 갈기와 말의 머리가 화면 아래쪽에 보이도록 표현
+    ctx.fillStyle = '#39251c';
+    ctx.beginPath(); ctx.moveTo(center-W*.18,y); ctx.quadraticCurveTo(center-W*.12,y-H*.22,center-W*.055,y-H*.26); ctx.quadraticCurveTo(center,y-H*.22,center+W*.055,y-H*.26); ctx.quadraticCurveTo(center+W*.13,y-H*.19,center+W*.18,y); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#7b4a30';
+    ctx.beginPath(); ctx.moveTo(center-W*.13,y); ctx.quadraticCurveTo(center-W*.09,y-H*.16,center-W*.045,y-H*.21); ctx.quadraticCurveTo(center,y-H*.18,center+W*.045,y-H*.21); ctx.quadraticCurveTo(center+W*.09,y-H*.16,center+W*.13,y); ctx.closePath(); ctx.fill();
+    // 귀
+    ctx.fillStyle = '#513323';
+    ctx.beginPath(); ctx.moveTo(center-W*.09,y-H*.18); ctx.lineTo(center-W*.12,y-H*.34); ctx.lineTo(center-W*.035,y-H*.25); ctx.closePath(); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(center+W*.09,y-H*.18); ctx.lineTo(center+W*.12,y-H*.34); ctx.lineTo(center+W*.035,y-H*.25); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#c18a62';
+    ctx.beginPath(); ctx.moveTo(center-W*.09,y-H*.205); ctx.lineTo(center-W*.105,y-H*.31); ctx.lineTo(center-W*.055,y-H*.25); ctx.closePath(); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(center+W*.09,y-H*.205); ctx.lineTo(center+W*.105,y-H*.31); ctx.lineTo(center+W*.055,y-H*.25); ctx.closePath(); ctx.fill();
+    // 갈기 결
+    ctx.strokeStyle = '#241b18'; ctx.lineWidth = Math.max(2,W*.004);
+    for(let i=-3;i<=3;i++){ctx.beginPath();ctx.moveTo(center+i*W*.018,y-H*.205);ctx.quadraticCurveTo(center+i*W*.015,y-H*.14,center+i*W*.025,y-H*.04);ctx.stroke();}
+    // 1인칭에서도 화면 아래 양쪽에 앞다리가 보이며, 달리는 박자에 맞춰 번갈아 움직입니다.
+    const gait = player.gaitTime;
+    for (let side = -1; side <= 1; side += 2) {
+      const phase = gait + (side > 0 ? Math.PI : 0);
+      const swing = Math.sin(phase);
+      const lift = Math.max(0, Math.cos(phase));
+      const rootX = center + side * W * .075;
+      const rootY = y - H * .035;
+      const kneeX = rootX + side * W * (.035 + swing * .025);
+      const kneeY = y - H * (.105 + lift * .035);
+      const hoofX = rootX + side * W * (.07 + swing * .045);
+      const hoofY = y - H * (.015 + lift * .07);
+      ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+      ctx.strokeStyle = '#3a261c'; ctx.lineWidth = Math.max(8, W*.018);
+      ctx.beginPath(); ctx.moveTo(rootX, rootY); ctx.quadraticCurveTo(kneeX - side*W*.012, kneeY, kneeX, kneeY); ctx.lineTo(hoofX, hoofY); ctx.stroke();
+      ctx.strokeStyle = '#865233'; ctx.lineWidth = Math.max(5, W*.011);
+      ctx.beginPath(); ctx.moveTo(rootX - side*W*.003, rootY); ctx.quadraticCurveTo(kneeX - side*W*.012, kneeY, kneeX, kneeY); ctx.lineTo(hoofX, hoofY); ctx.stroke();
+      ctx.fillStyle = '#302019'; ctx.beginPath(); ctx.ellipse(hoofX, hoofY, Math.max(7,W*.014), Math.max(4,H*.009), -.1*side, 0, Math.PI*2); ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  function drawYellowPillar(x, z, camera, baseY = 0, height = 9, sizeFactor = 1, glow = 18) {
+    const bottom = project(x, z, baseY, camera);
+    const top = project(x, z, baseY + height, camera);
+    if (!bottom || !top || bottom.depth > 350 || bottom.x < -160 || bottom.x > W + 160) return;
+    const width = Math.max(3, Math.min(58, bottom.scale * 1.35 * sizeFactor));
+    const half = width * .5;
+    ctx.save();
+    ctx.shadowColor = '#ffe94d'; ctx.shadowBlur = glow;
+    // 중앙의 밝은 금빛 면과 양옆의 어두운 면으로 기둥의 입체감을 표현합니다.
+    polygon([
+      { x: top.x - half * .68, y: top.y },
+      { x: top.x + half * .45, y: top.y - half * .22 },
+      { x: bottom.x + half * .45, y: bottom.y - half * .22 },
+      { x: bottom.x - half * .68, y: bottom.y }
+    ], '#ffe65a', '#fff7ad', Math.max(1, width * .07));
+    polygon([
+      { x: top.x + half * .45, y: top.y - half * .22 },
+      { x: top.x + half, y: top.y + half * .04 },
+      { x: bottom.x + half, y: bottom.y + half * .04 },
+      { x: bottom.x + half * .45, y: bottom.y - half * .22 }
+    ], '#d99408', '#fff0a0', Math.max(1, width * .045));
+    ctx.shadowBlur = glow * .55;
+    ctx.strokeStyle = 'rgba(255,255,210,.95)'; ctx.lineWidth = Math.max(1, width * .09);
+    ctx.beginPath(); ctx.moveTo(top.x - half * .12, top.y + 2); ctx.lineTo(bottom.x - half * .12, bottom.y - 2); ctx.stroke();
+    // 바닥에 빛나는 원형 충격 범위
+    ctx.shadowBlur = 0;
+    ctx.strokeStyle = 'rgba(255,226,57,.9)'; ctx.lineWidth = Math.max(1.5, width * .09);
+    ctx.beginPath(); ctx.ellipse(bottom.x, bottom.y, width * 1.12, Math.max(2, width * .26), 0, 0, Math.PI * 2); ctx.stroke();
+    ctx.restore();
+  }
+
+  function drawLoveTrainEffects(camera) {
+    const attack = loveTrainAttack;
+    if (!attack) return;
+
+    // 첫 단계: 플레이어 주변에서 여러 황금 기둥이 빙글빙글 공전합니다.
+    if (attack.phase === 'orbit') {
+      const count = 7;
+      for (let i = 0; i < count; i++) {
+        const angle = attack.angle + i * Math.PI * 2 / count;
+        const radius = 5.2 + Math.sin(attack.elapsed * 4 + i) * .55;
+        const x = player.x + Math.cos(angle) * radius;
+        const z = player.z + Math.sin(angle) * radius;
+        const lift = 1.0 + (Math.sin(attack.elapsed * 7 + i * 1.3) + 1) * .65;
+        drawYellowPillar(x, z, camera, lift, 5.5 + (i % 3) * .8, .88, 15);
+      }
+    }
+
+    // 이미 떨어진 기둥은 잠깐 빛나는 충격파로 남습니다.
+    for (const impact of attack.impacts) {
+      const p = project(impact.x, impact.z, .06, camera);
+      if (!p || p.depth > 350) continue;
+      const fade = Math.max(0, impact.timer / impact.maxTimer);
+      const radius = (1 - fade) * 34 + 7;
+      ctx.save();
+      ctx.globalAlpha = fade;
+      ctx.shadowColor = '#ffe632'; ctx.shadowBlur = 24;
+      ctx.strokeStyle = '#fff06a'; ctx.lineWidth = 4 * fade + 1;
+      ctx.beginPath(); ctx.ellipse(p.x, p.y, radius, radius * .27, 0, 0, Math.PI * 2); ctx.stroke();
+      ctx.fillStyle = 'rgba(255,225,35,.2)'; ctx.beginPath(); ctx.ellipse(p.x, p.y, radius * .75, radius * .18, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+    }
+
+    // 두 번째 단계: 목표 AI의 주행 라인을 따라 세 개의 기둥이 차례로 떨어집니다.
+    if (attack.phase === 'rain') {
+      const offset = [-4.2, 0, 4.2][attack.strikeIndex] || 0;
+      const strikeZ = Math.max(0, Math.min(FINISH, attack.baseZ + offset));
+      const strikeX = trackCenter(strikeZ) + attack.laneOffset;
+      const progress = Math.max(0, Math.min(1, attack.strikeElapsed / .42));
+      const fallY = 23 * (1 - progress);
+      drawYellowPillar(strikeX, strikeZ, camera, fallY, 8.5, 1.5, 28);
+      const target = attack.target;
+      if (target && !target.eliminated) {
+        const targetPoint = project(target.x, target.z, target.y || 0, camera);
+        if (targetPoint && target.pillarHitFlash > 0) {
+          ctx.save();
+          ctx.globalAlpha = Math.min(1, target.pillarHitFlash / .58);
+          ctx.strokeStyle = '#fff07a'; ctx.lineWidth = 5; ctx.shadowColor = '#ffd900'; ctx.shadowBlur = 24;
+          ctx.beginPath(); ctx.ellipse(targetPoint.x, targetPoint.y - targetPoint.scale * .55, targetPoint.scale * 1.7, targetPoint.scale * .7, 0, 0, Math.PI * 2); ctx.stroke();
+          ctx.restore();
+        }
+      }
+    }
+  }
+
+  function drawDinosaur(point, attack, camera) {
+    if (!point) return;
+    const ahead = project(trackCenter(attack.z + 7), attack.z + 7, 0, camera);
+    let angle = ahead ? Math.atan2(ahead.y - point.y, ahead.x - point.x) : -Math.PI / 2;
+    // 코스의 진행 방향을 바라보되, 먹는 순간에는 목표 쪽으로 살짝 고개를 돌립니다.
+    if (attack.phase === 'eat') angle += .08 * Math.sin(attack.elapsed * 18);
+    const u = Math.max(3.2, Math.min(42, point.scale * 1.22));
+    const run = attack.phase === 'run' || attack.phase === 'emerge';
+    const legSwing = run ? Math.sin(attack.gait) * .42 : Math.sin(attack.elapsed * 12) * .12;
+    const jawOpen = attack.phase === 'eat' ? .42 + .26 * (0.5 + 0.5 * Math.sin(attack.elapsed * 20)) : .12;
+
+    ctx.save();
+    ctx.translate(point.x, point.y);
+    ctx.rotate(angle);
+    const emergeScale = attack.phase === 'emerge' ? 0.42 + 0.58 * Math.min(1, attack.elapsed / 0.48) : 1;
+    ctx.scale(u * emergeScale, u * emergeScale);
+
+    // 발밑 그림자와 길 위 모래먼지
+    ctx.fillStyle = 'rgba(50,31,15,.28)';
+    ctx.beginPath(); ctx.ellipse(-.1, -.04, 2.75, .48, 0, 0, Math.PI * 2); ctx.fill();
+    if (run) {
+      for (let i = 0; i < 3; i++) {
+        ctx.fillStyle = `rgba(240,198,133,${.24 - i * .055})`;
+        ctx.beginPath(); ctx.arc(-2.5 - i * .58, -.18 - (i % 2) * .18, .22 + i * .08, 0, Math.PI * 2); ctx.fill();
+      }
+    }
+
+    // 꼬리
+    ctx.fillStyle = '#1264c6'; ctx.strokeStyle = '#083f91'; ctx.lineWidth = .13;
+    ctx.beginPath(); ctx.moveTo(-1.45, -1.42); ctx.quadraticCurveTo(-2.5, -1.85, -3.55, -1.18); ctx.quadraticCurveTo(-2.95, -1.12, -2.25, -.82); ctx.lineTo(-1.25, -1.0); ctx.closePath(); ctx.fill(); ctx.stroke();
+
+    // 네 다리: 실제 코스 진행에 맞춰 달리는 동작
+    const legs = [
+      { x: -.95, phase: legSwing }, { x: -.45, phase: legSwing + Math.PI },
+      { x: .95, phase: legSwing + Math.PI }, { x: 1.35, phase: legSwing }
+    ];
+    for (const leg of legs) {
+      const swing = Math.sin(leg.phase) * .43;
+      const lift = Math.max(0, Math.cos(leg.phase)) * .24;
+      ctx.strokeStyle = '#0b4fa9'; ctx.lineWidth = .38; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(leg.x, -1.0); ctx.lineTo(leg.x + swing * .5, -.48 - lift); ctx.lineTo(leg.x + swing, -.08 - lift); ctx.stroke();
+      ctx.fillStyle = '#073c80'; ctx.beginPath(); ctx.ellipse(leg.x + swing, -.06 - lift, .34, .13, -.06, 0, Math.PI * 2); ctx.fill();
+    }
+
+    // 몸통과 밝은 배
+    const blue = ctx.createLinearGradient(-1, -2.6, 1.8, -.45);
+    blue.addColorStop(0, '#75d9ff'); blue.addColorStop(.48, '#2589ef'); blue.addColorStop(1, '#0750b1');
+    ctx.fillStyle = blue; ctx.strokeStyle = '#073e8a'; ctx.lineWidth = .16;
+    ctx.beginPath(); ctx.ellipse(-.05, -1.52, 1.72, .91, -.08, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#b9efff';
+    ctx.beginPath(); ctx.ellipse(.18, -1.07, 1.25, .42, -.04, 0, Math.PI * 2); ctx.fill();
+
+    // 목과 큰 머리
+    ctx.fillStyle = '#1677df'; ctx.strokeStyle = '#073e8a'; ctx.lineWidth = .16;
+    ctx.beginPath(); ctx.moveTo(.55, -1.9); ctx.lineTo(1.05, -2.72); ctx.quadraticCurveTo(1.48, -3.14, 2.15, -2.86); ctx.lineTo(2.55, -2.35); ctx.lineTo(1.95, -1.72); ctx.lineTo(1.18, -1.25); ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.beginPath(); ctx.ellipse(2.05, -2.63, .88, .57, -.08, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+
+    // 등쪽의 작은 공룡 돌기
+    for (let i = 0; i < 5; i++) {
+      const sx = -1.15 + i * .55;
+      const sy = -2.16 - Math.sin(i / 4 * Math.PI) * .18;
+      ctx.fillStyle = '#62caff'; ctx.beginPath(); ctx.moveTo(sx - .2, sy + .18); ctx.lineTo(sx, sy - .35); ctx.lineTo(sx + .22, sy + .18); ctx.closePath(); ctx.fill();
+    }
+
+    // 짧은 앞발
+    ctx.strokeStyle = '#0a4eaa'; ctx.lineWidth = .25; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(.75, -1.48); ctx.lineTo(1.05, -1.08); ctx.lineTo(1.38, -1.2); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(1.1, -1.53); ctx.lineTo(1.35, -1.18); ctx.lineTo(1.62, -1.3); ctx.stroke();
+
+    // 위턱과 크게 벌어지는 아래턱
+    ctx.fillStyle = '#0750a7'; ctx.strokeStyle = '#062f6d'; ctx.lineWidth = .11;
+    ctx.beginPath(); ctx.moveTo(2.25, -2.49); ctx.quadraticCurveTo(3.1, -2.48, 3.38, -2.2); ctx.quadraticCurveTo(3.05, -2.03, 2.38, -2.12); ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.save();
+    ctx.translate(2.35, -2.26);
+    ctx.rotate(jawOpen);
+    ctx.fillStyle = '#1677df';
+    ctx.beginPath(); ctx.moveTo(0, 0); ctx.quadraticCurveTo(.7, .02, 1.1, .34); ctx.quadraticCurveTo(.65, .58, .1, .34); ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#fff';
+    for (let i = 0; i < 4; i++) {
+      const tx = .18 + i * .2;
+      ctx.beginPath(); ctx.moveTo(tx, .03); ctx.lineTo(tx + .07, .23); ctx.lineTo(tx + .14, .04); ctx.closePath(); ctx.fill();
+    }
+    ctx.restore();
+    ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(2.16, -2.89, .22, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#09264e'; ctx.beginPath(); ctx.arc(2.23, -2.88, .105, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(2.26, -2.94, .04, 0, Math.PI * 2); ctx.fill();
+
+    // 공룡이 달려오는 동안 2초간 머리 위에 Dio! 문구가 함께 이동합니다.
+    const labelX = point.x + Math.cos(angle) * 2.2 * u + Math.sin(angle) * 3.7 * u;
+    const labelY = point.y + Math.sin(angle) * 2.2 * u - Math.cos(angle) * 3.7 * u;
+    ctx.restore();
+    if (attack.elapsed < 2.0) {
+      ctx.save();
+      const fontSize = Math.max(17, Math.min(46, u * 1.05));
+      ctx.font = `1000 ${fontSize}px system-ui, sans-serif`;
+      ctx.textAlign = 'center'; ctx.lineJoin = 'round';
+      ctx.lineWidth = Math.max(3, fontSize * .12); ctx.strokeStyle = '#07316e';
+      ctx.strokeText('Dio!', labelX, labelY);
+      ctx.fillStyle = '#fff'; ctx.shadowColor = '#39a9ff'; ctx.shadowBlur = 16;
+      ctx.fillText('Dio!', labelX, labelY);
+      ctx.restore();
+    }
+  }
+
+  function draw() {
+    ctx.clearRect(0,0,W,H);
+    drawSky();
+    const camera = currentCamera();
+    drawRoad(camera);
+    drawDecorations(camera);
+
+    // X 차원에 있는 동안에는 플레이어만 다른 차원에 있어요.
+    // AI와 공룡은 현실 코스에서 계속 움직이지만, 플레이어의 차원 화면에는 나타나지 않습니다.
+    if (!dimension.active) {
+      // AI 기수는 먼 순서부터 그려요.
+      const riders = ai.filter(r => !r.eliminated).map(r => ({ r, p: project(r.x, r.z, r.y || 0, camera) })).filter(v => v.p).sort((a,b)=>b.p.depth-a.p.depth);
+      riders.forEach(v => {
+        if (v.r.beingEaten && dinoAttack && dinoAttack.phase === 'eat') {
+          // 공룡이 코스 위에서 AI를 물면 기수가 서서히 작아지며 사라집니다.
+          const eating = Math.max(0, Math.min(1, 1 - dinoAttack.eatTimer / 1.65));
+          const shrink = Math.max(.06, 1 - eating * .94);
+          ctx.save();
+          ctx.globalAlpha = 1 - eating * .35;
+          ctx.translate(v.p.x, v.p.y);
+          ctx.scale(shrink, shrink);
+          ctx.translate(-v.p.x, -v.p.y);
+          if (dinoAttack.phase === 'eat') {
+            const shake = Math.sin(dinoAttack.elapsed * 46) * (1 - eating) * 4;
+            ctx.translate(shake, 0);
+          }
+          drawRider(v.p, v.r.color, v.r.rider, v.r.name, false, raceTime * 9);
+          ctx.restore();
+        } else {
+          drawRider(v.p, v.r.color, v.r.rider, v.r.name, false, raceTime * (v.r.sprinting ? 13 : 9) + v.r.z * .12);
+          drawAiSkillEffects(v.r, camera, v.p);
+        }
+      });
+
+      if (dinoAttack) {
+        const dinoPoint = project(dinoAttack.x, dinoAttack.z, 0, camera);
+        drawDinosaur(dinoPoint, dinoAttack, camera);
+      }
+    }
+    if (!dimension.active || (loveTrainAttack && loveTrainAttack.phase === 'orbit')) {
+      drawLoveTrainEffects(camera);
+    }
+
+    if (!firstPerson) {
+      const pp = project(player.x, player.z, player.y, camera);
+      drawRider(pp, '#70442b', '#e8c46f', '나', true, player.gaitTime);
+    }
+    drawRope(camera);
+    drawSteelBall(camera);
+    if (firstPerson) drawFirstPersonHorse();
+
+    if (dimension.active) {
+      // 화면 색을 차원 특유의 푸른 보라빛으로 살짝 물들입니다. 카메라는 평소처럼 플레이어를 따라갑니다.
+      ctx.fillStyle = 'rgba(35,25,105,.19)'; ctx.fillRect(0, 0, W, H);
+      const pulse = .5 + .5 * Math.sin(dimension.elapsed * 2.4);
+      const aura = ctx.createRadialGradient(W * .5, H * .48, 20, W * .5, H * .48, Math.max(W, H) * .68);
+      aura.addColorStop(0, `rgba(103,190,255,${.035 + pulse * .025})`);
+      aura.addColorStop(1, 'rgba(25,14,77,.2)');
+      ctx.fillStyle = aura; ctx.fillRect(0, 0, W, H);
+    }
+
+    // 화면 가장자리에 따뜻한 햇빛 느낌
+    const vignette = ctx.createRadialGradient(W*.5,H*.5,Math.min(W,H)*.22,W*.5,H*.5,Math.max(W,H)*.72);
+    vignette.addColorStop(.65,'rgba(48,27,9,0)'); vignette.addColorStop(1,'rgba(48,27,9,.2)');
+    ctx.fillStyle = vignette; ctx.fillRect(0,0,W,H);
+  }
+
+  function frame(time) {
+    const dt = Math.min(.05, (time - (lastTime || time)) / 1000 || 0);
+    lastTime = time;
+    update(dt);
+    draw();
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+
+  // 메뉴 화면의 기본 HUD 값도 보기 좋게 초기화합니다.
+  updateHud();
+})();
+</script>
+</body>
+</html>
